@@ -14,7 +14,7 @@ This engineering specification incorporates a comprehensive audit of foundationa
 | **Parameter Count Formulation** | 138B Total / 22B Active<br>*(uncalibrated expert sizing)* | **Exact Architecture Breakdown:**<br>• Configuration A (Audited Reference): 190.8B Total / 30.2B Active<br>• Configuration B (Calibrated Baseline): 138.4B Total / 21.9B Active |
 | **MLA KV-Cache Compression** | ~93% | **Exactly 96.484% tensor storage reduction**<br>(16,384 floats/token/layer down to 576 floats) |
 | **128k BF16 KV-Cache (B=16)** | Hundreds of GB | **MHA: 4.295 TB** vs. **MLA: 151.0 GB** |
-| **Pre-Training Cost Modeling** | $6.8M / 1,024 GPUs / 54 days<br>*($5.12/hr effective rate)* | **Disaggregated Financial Reconciliation:**<br>• Pure Compute ($2.50–$3.20/hr): $3.32M – $4.25M<br>• Fully Burdened Project Budget: $6.80M *(Storage, Failures, R&D, Mid/Post-Training, Eval)* |
+| **Pre-Training Cost Modeling** | \$6.8M / 1,024 GPUs / 54 days<br>*(\$5.12/hr effective rate)* | **Disaggregated Financial Reconciliation:**<br>• Pure Compute (\$2.50–\$3.20/hr): \$3.32M – \$4.25M<br>• Fully Burdened Project Budget: \$6.80M *(Storage, Failures, R&D, Mid/Post-Training, Eval)* |
 | **MoE Dynamic Load Balancing** | Static buffer registration<br>*(bias never updated)* | Implemented momentum-driven dynamic bias tracking ($b_i$) and decoupled score routing from weight assignment |
 | **Multi-Token Causal Mask** | Mask starting at index 0<br>*(breaks cached decoding)* | Implemented `past_len` position-aware dynamic causal masking with decoupled RoPE index offsets |
 | **GRPO Reasoning Pipeline** | Static loss function only | Complete end-to-end rollout generator, group advantage normalization, reward-hacking safeguards, and optimizer |
@@ -29,10 +29,20 @@ This engineering specification incorporates a comprehensive audit of foundationa
 In an autoregressive Transformer utilizing Multi-Head Latent Attention (MLA) and a Fine-Grained Sparse Mixture-of-Experts (MoE) Feed-Forward Network (FFN), parameters reside in three primary sub-structures:
 
 1. **Embedding & Language Modeling Head**:
-   $$P_{\text{embed}} = V \times d_{\text{model}}$$
-   $$P_{\text{head}} = d_{\text{model}} \times V \quad (\text{if untied})$$
+
+   $$
+   P_{\text{embed}} = V \times d_{\text{model}}
+   $$
+
+   $$
+   P_{\text{head}} = d_{\text{model}} \times V \quad (\text{if untied})
+   $$
+
    For vocabulary $V = 128,000$ and $d_{\text{model}} = 5,120$ (with tied embeddings):
-   $$P_{\text{embed}} = 128,000 \times 5,120 = 655,360,000 \approx 0.655\text{ Billion}$$
+
+   $$
+   P_{\text{embed}} = 128,000 \times 5,120 = 655,360,000 \approx 0.655\text{ Billion}
+   $$
 
 2. **Multi-Head Latent Attention (MLA) Per Layer**:
    With $n_{\text{heads}} = 64$, $d_{\text{head}} = 128$, latent KV dimension $d_c = 512$, decoupled RoPE key dimension $d_r = 64$, and query projection:
@@ -44,15 +54,29 @@ In an autoregressive Transformer utilizing Multi-Head Latent Attention (MLA) and
    * Value up-projection ($W^{UV}$): $d_c \times (n_{\text{heads}} \times d_{\text{head}}) = 512 \times 8,192 = 4,194,304$
    * Output projection ($W^O$): $(n_{\text{heads}} \times d_{\text{head}}) \times d_{\text{model}} = 8,192 \times 5,120 = 41,943,040$
    * LayerNorm / RMSNorm weights ($4 \times d_{\text{model}}$): $\approx 20,480$
-   $$P_{\text{attn\_layer}} = 116,195,328 \approx 116.20\text{ Million}$$
+
+   $$
+   P_{\text{attn\_layer}} = 116,195,328 \approx 116.20\text{ Million}
+   $$
+
    Across $L = 64$ layers:
-   $$P_{\text{attn\_total}} = 64 \times 116,195,328 = 7,436,500,992 \approx 7.437\text{ Billion}$$
+
+   $$
+   P_{\text{attn\_total}} = 64 \times 116,195,328 = 7,436,500,992 \approx 7.437\text{ Billion}
+   $$
 
 3. **SwiGLU MoE Feed-Forward Network (FFN)**:
    A SwiGLU expert requires three linear projection matrices: gate ($W_1$), value ($W_3$), and down ($W_2$):
-   $$P_{\text{expert}} = 3 \times d_{\text{model}} \times d_{\text{expert\_ffn}}$$
+
+   $$
+   P_{\text{expert}} = 3 \times d_{\text{model}} \times d_{\text{expert\_ffn}}
+   $$
+
    For $d_{\text{model}} = 5,120$:
-   $$P_{\text{expert}} = 3 \times 5,120 \times d_{\text{expert\_ffn}} = 15,360 \times d_{\text{expert\_ffn}}$$
+
+   $$
+   P_{\text{expert}} = 3 \times 5,120 \times d_{\text{expert\_ffn}} = 15,360 \times d_{\text{expert\_ffn}}
+   $$
 
 #### Comparison of Architectural Configurations
 
@@ -78,21 +102,32 @@ In an autoregressive Transformer utilizing Multi-Head Latent Attention (MLA) and
 
 In Multi-Head Attention (MHA), serving long sequences requires maintaining the Key and Value matrices across all heads for every token in history.
 
-$$\text{Elements}_{\text{MHA}} = 2 \times n_{\text{heads}} \times d_{\text{head}} = 2 \times 64 \times 128 = 16,384 \text{ elements/token/layer}$$
+$$
+\text{Elements}_{\text{MHA}} = 2 \times n_{\text{heads}} \times d_{\text{head}} = 2 \times 64 \times 128 = 16,384 \text{ elements/token/layer}
+$$
 
 In Multi-Head Latent Attention (MLA), the Key and Value states are compressed into a single latent vector $\mathbf{c}_t^{KV} \in \mathbb{R}^{d_c}$ ($d_c = 512$), accompanied by a decoupled rotary position key $\mathbf{k}_t^R \in \mathbb{R}^{d_r}$ ($d_r = 64$):
 
-$$\text{Elements}_{\text{MLA}} = d_c + d_r = 512 + 64 = 576 \text{ elements/token/layer}$$
+$$
+\text{Elements}_{\text{MLA}} = d_c + d_r = 512 + 64 = 576 \text{ elements/token/layer}
+$$
 
 #### Exact Theoretical Compression Rate:
-$$\text{Reduction} = 1 - \frac{\text{Elements}_{\text{MLA}}}{\text{Elements}_{\text{MHA}}} = 1 - \frac{576}{16,384} = 1 - 0.03515625 = \mathbf{96.484375\%} \approx \mathbf{96.48\%}$$
+
+$$
+\text{Reduction} = 1 - \frac{\text{Elements}_{\text{MLA}}}{\text{Elements}_{\text{MHA}}} = 1 - \frac{576}{16,384} = 1 - 0.03515625 = \mathbf{96.484375\%} \approx \mathbf{96.48\%}
+$$
 
 #### Total Memory Footprint at Enterprise Scale ($B = 16$, $S = 128,000$, $L = 64$):
 Under 16-bit precision (BF16 / FP16, where 1 element = 2 bytes):
 
-$$\text{Memory}_{\text{MHA}} = 16 \times 128,000 \times 64 \times 16,384 \times 2 \text{ bytes} = 4,294,967,296,000 \text{ bytes} = \mathbf{4.29497\text{ Terabytes (TB)}}$$
+$$
+\text{Memory}_{\text{MHA}} = 16 \times 128,000 \times 64 \times 16,384 \times 2 \text{ bytes} = 4,294,967,296,000 \text{ bytes} = \mathbf{4.29497\text{ Terabytes (TB)}}
+$$
 
-$$\text{Memory}_{\text{MLA}} = 16 \times 128,000 \times 64 \times 576 \times 2 \text{ bytes} = 150,994,944,000 \text{ bytes} = \mathbf{150.995\text{ Gigabytes (GB)}}$$
+$$
+\text{Memory}_{\text{MLA}} = 16 \times 128,000 \times 64 \times 576 \times 2 \text{ bytes} = 150,994,944,000 \text{ bytes} = \mathbf{150.995\text{ Gigabytes (GB)}}
+$$
 
 > **Critical Systems Architecture Caveat**: The 96.48% reduction applies exclusively to the **KV-cache tensor storage footprint**. In an operational serving cluster, total memory allocation also includes model weights (280GB in FP16 / 140GB in FP8 for a 140B model), activation memory, CUDA context overhead, PyTorch workspaces, and continuous batching metadata. MLA shifts the bottleneck from memory capacity to compute throughput.
 
@@ -101,22 +136,29 @@ $$\text{Memory}_{\text{MLA}} = 16 \times 128,000 \times 64 \times 576 \times 2 \
 ### 1.3 Pre-Training Budget Reconciliation & Economics
 
 A standard calculation based strictly on compute rental yields:
-$$\text{Total Accelerator Hours} = 1,024 \text{ devices} \times 54 \text{ days} \times 24 \text{ hours/day} = 1,327,104 \text{ device-hours}$$
+
+$$
+\text{Total Accelerator Hours} = 1,024 \text{ devices} \times 54 \text{ days} \times 24 \text{ hours/day} = 1,327,104 \text{ device-hours}
+$$
+
 At raw reservation rates of $\$2.50$ to $\$3.20$ per device-hour:
-$$\text{Raw Compute Cost} = 1,327,104 \times \$2.50 = \mathbf{\$3,317,760} \quad (\text{at } \$3.20/\text{hr} = \mathbf{\$4,246,733})$$
+
+$$
+\text{Raw Compute Cost} = 1,327,104 \times \$2.50 = \mathbf{\$3,317,760} \quad (\text{at } \$3.20/\text{hr} = \mathbf{\$4,246,733})
+$$
 
 To reconcile this with the **\$6.80 Million Total Pre-Training Project Budget**, the full economic ledger must be accounted for:
 
 | Budget Component | Cost (USD) | Percentage |
 | :--- | :--- | :--- |
-| **1. Core Pre-Training Compute** (1.327M device-hours) | $3,650,000 | 53.7% |
-| **2. Unallocated Capacity, Stragglers & Failures**<br>*(15% MFU loss from node drops & NCCL timeouts)* | $720,000 | 10.6% |
-| **3. Storage, Petabyte Fast Scratch & Data Egress**<br>*(High-performance GPFS / Lustre NVMe tiers)* | $580,000 | 8.5% |
-| **4. Pre-Training Exploratory Ablations & Scaling**<br>*(1B, 3B, 8B pilot architectures & loss checks)* | $650,000 | 9.6% |
-| **5. Mid-Training & Context Extension Runs**<br>*(128k YaRN adaptation & specialized STEM data)* | $480,000 | 7.1% |
-| **6. Post-Training RLVR Compute** *(GRPO Rollouts)* | $420,000 | 6.2% |
-| **7. Benchmark Infrastructure & Red-Teaming Audits** | $300,000 | 4.4% |
-| **TOTAL FULLY-BURDENED PROJECT BUDGET** | **$6,800,000** | **100.0%** |
+| **1. Core Pre-Training Compute** (1.327M device-hours) | \$3,650,000 | 53.7% |
+| **2. Unallocated Capacity, Stragglers & Failures**<br>*(15% MFU loss from node drops & NCCL timeouts)* | \$720,000 | 10.6% |
+| **3. Storage, Petabyte Fast Scratch & Data Egress**<br>*(High-performance GPFS / Lustre NVMe tiers)* | \$580,000 | 8.5% |
+| **4. Pre-Training Exploratory Ablations & Scaling**<br>*(1B, 3B, 8B pilot architectures & loss checks)* | \$650,000 | 9.6% |
+| **5. Mid-Training & Context Extension Runs**<br>*(128k YaRN adaptation & specialized STEM data)* | \$480,000 | 7.1% |
+| **6. Post-Training RLVR Compute** *(GRPO Rollouts)* | \$420,000 | 6.2% |
+| **7. Benchmark Infrastructure & Red-Teaming Audits** | \$300,000 | 4.4% |
+| **TOTAL FULLY-BURDENED PROJECT BUDGET** | **\$6,800,000** | **100.0%** |
 
 ---
 
@@ -142,12 +184,16 @@ graph TD
 
 Before committing to a 15T-token training run, empirical scaling laws must be fitted on smaller pilot models ($100\text{M}, 300\text{M}, 1\text{B}, 3\text{B}$):
 
-$$\mathcal{L}(N, D) = E + \frac{A}{N^{\alpha}} + \frac{B}{D^{\beta}}$$
+$$
+\mathcal{L}(N, D) = E + \frac{A}{N^{\alpha}} + \frac{B}{D^{\beta}}
+$$
 
 #### FLOPs Correction Beyond $6ND$:
 The classical Chinchilla approximation ($C \approx 6ND$) assumes standard dense models with sequence lengths $S \ll d_{\text{model}}$. For long-context sparse MoE architectures, the compute formula requires two fundamental corrections:
 
-$$C_{\text{corrected}} = 6 N_{\text{active}} D + 2 D \cdot S \cdot \frac{L \cdot d_{\text{head}} \cdot n_{\text{heads}}}{d_{\text{model}}} + C_{\text{routing}}$$
+$$
+C_{\text{corrected}} = 6 N_{\text{active}} D + 2 D \cdot S \cdot \frac{L \cdot d_{\text{head}} \cdot n_{\text{heads}}}{d_{\text{model}}} + C_{\text{routing}}
+$$
 
 1. **Attention Overhead**: At $S = 128,000$, the $O(S^2)$ attention dot-product accounts for over $18\%$ of total floating-point operations.
 2. **MoE Routing Communication Overhead**: Top-$K$ gating dispatches activations across nodes via all-to-all communication, which introduces an effective throughput drag of $12\%\text{--}15\%$ depending on interconnect latency.
@@ -245,7 +291,11 @@ Following the general 15T-token pre-training phase, the base model enters **Targ
    * **Purpose**: Solidifies analytical foundations and counteracts the noisy distribution of generalized web text.
 2. **Context Extension Protocol (8k $\to$ 128k via YaRN)**:
    * **YaRN (Yet another RoPE extensioN)** dynamically scales the base frequency:
-     $$\theta_i = b^{-2(i-1)/d} \cdot \left( (1 - \alpha) + \alpha \cdot \frac{s}{t} \right)$$
+
+     $$
+     \theta_i = b^{-2(i-1)/d} \cdot \left( (1 - \alpha) + \alpha \cdot \frac{s}{t} \right)
+     $$
+
    * Context length is scaled progressively: $8\text{k} \to 32\text{k}$ ($100\text{B}$ tokens), followed by $32\text{k} \to 128\text{k}$ ($100\text{B}$ tokens) with learning rate set to $0.1 \times \text{LR}_{\text{peak}}$.
 
 ---
@@ -254,7 +304,7 @@ Following the general 15T-token pre-training phase, the base model enters **Targ
 
 ```mermaid
 graph TD
-    prompt["Input Reasoning Prompt (q)"] --> rollout["Policy Model Rollout Engine<br/>Generates Group of G=8 Candidate Completions"]
+    prompt["Input Reasoning Prompt (q)"] --> rollout["Policy Model Rollout Engine<br>Generates Group of G=8 Candidate Completions"]
     rollout --> c1["Candidate o_1"]
     rollout --> c2["Candidate o_2"]
     rollout --> c8["Candidate o_8"]
@@ -264,11 +314,11 @@ graph TD
     s1 --> r1["Reward r_1"]
     s2 --> r2["Reward r_2"]
     s8 --> r8["Reward r_8"]
-    r1 --> check["Reward Distribution Sanity Check<br/>If std(r) == 0: Skip gradient update; clamp rewards"]
+    r1 --> check["Reward Distribution Sanity Check<br>If std(r) == 0: Skip gradient update; clamp rewards"]
     r2 --> check
     r8 --> check
-    check --> norm["Group Advantage Normalization<br/>A_i = (r_i - mean(r)) / (std(r) + eps)"]
-    norm --> loss["GRPO Loss Computation with Reference KL Divergence<br/>Critic-free policy update via AdamW"]
+    check --> norm["Group Advantage Normalization<br>A_i = (r_i - mean(r)) / (std(r) + eps)"]
+    norm --> loss["GRPO Loss Computation with Reference KL Divergence<br>Critic-free policy update via AdamW"]
 ```
 
 #### Rule-Based Verifiers vs. Process Reward Models:
@@ -356,7 +406,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, Tuple, Dict, List, Any
 
-
 # ============================================================================
 # 1. Multi-Head Latent Attention (MLA) with Corrected Causal Mask & QK-Norm
 # ============================================================================
@@ -370,7 +419,6 @@ class RMSNorm(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         variance = x.pow(2).mean(-1, keepdim=True)
         return x * torch.rsqrt(variance + self.eps) * self.weight
-
 
 class MultiHeadLatentAttention(nn.Module):
     def __init__(
@@ -478,7 +526,6 @@ class MultiHeadLatentAttention(nn.Module):
         x2 = x[..., x.shape[-1] // 2 :]
         return torch.cat((-x2, x1), dim=-1)
 
-
 # ============================================================================
 # 2. Fine-Grained Sparse MoE with Dynamic Momentum-Driven Router Bias
 # ============================================================================
@@ -492,7 +539,6 @@ class SwiGLUExpert(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
-
 
 class FineGrainedSparseMoELayer(nn.Module):
     def __init__(
@@ -569,7 +615,6 @@ class FineGrainedSparseMoELayer(nn.Module):
 
         total_out = shared_out + routed_out
         return total_out.view(batch_size, seq_len, d_model)
-
 
 # ============================================================================
 # 3. Complete GRPO Online Rollout & Training Pipeline
@@ -665,7 +710,6 @@ class GRPOTrainer:
     @staticmethod
     def _compute_log_probs(model: nn.Module, prompts: torch.Tensor, completions: torch.Tensor):
         return torch.zeros((prompts.shape[0], completions.shape[1]), device=prompts.device)
-
 
 # ============================================================================
 # 4. Secure Agentic Tool Boundary with Injection Sanitization

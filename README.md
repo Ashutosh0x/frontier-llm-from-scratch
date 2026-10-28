@@ -22,7 +22,7 @@ This engineering specification incorporates a comprehensive audit of foundationa
 | **Parameter Count Formulation** | 138B Total / 22B Active<br>*(uncalibrated expert sizing)* | **Exact Architecture Breakdown:**<br>• Configuration A (Audited Reference): 190.8B Total / 30.2B Active<br>• Configuration B (Calibrated Baseline): 138.4B Total / 21.9B Active |
 | **MLA KV-Cache Compression** | ~93% | **Exactly 96.484% tensor storage reduction**<br>(16,384 floats/token/layer down to 576 floats) |
 | **128k BF16 KV-Cache (B=16)** | Hundreds of GB | **MHA: 4.295 TB** vs. **MLA: 151.0 GB** |
-| **Pre-Training Cost Modeling** | $6.8M / 1,024 GPUs / 54 days<br>*($5.12/hr effective rate)* | **Disaggregated Financial Reconciliation:**<br>• Pure Compute ($2.50–$3.20/hr): $3.32M – $4.25M<br>• Fully Burdened Project Budget: $6.80M *(Storage, Failures, R&D, Mid/Post-Training, Eval)* |
+| **Pre-Training Cost Modeling** | \$6.8M / 1,024 GPUs / 54 days<br>*(\$5.12/hr effective rate)* | **Disaggregated Financial Reconciliation:**<br>• Pure Compute (\$2.50–\$3.20/hr): \$3.32M – \$4.25M<br>• Fully Burdened Project Budget: \$6.80M *(Storage, Failures, R&D, Mid/Post-Training, Eval)* |
 | **MoE Dynamic Load Balancing** | Static buffer registration<br>*(bias never updated)* | Implemented momentum-driven dynamic bias tracking ($b_i$) and decoupled score routing from weight assignment |
 | **Multi-Token Causal Mask** | Mask starting at index 0<br>*(breaks cached decoding)* | Implemented `past_len` position-aware dynamic causal masking with decoupled RoPE index offsets |
 | **GRPO Reasoning Pipeline** | Static loss function only | Complete end-to-end rollout generator, group advantage normalization, reward-hacking safeguards, and optimizer |
