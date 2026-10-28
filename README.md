@@ -1,80 +1,126 @@
-# Frontier LLM Engineering Blueprint: Building From Scratch
-**Production-Audited Specification, Mathematical Reconciliations, 9-Stage Engineering Lifecycle, PyTorch Implementations, and Compute Budgeting**
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![PyTorch 2.0+](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c.svg)](https://pytorch.org/)
-
-This repository contains the verified, production-audited engineering specification and implementation blueprint for building, training, aligning, and deploying frontier-grade Large Language Models (LLMs) from scratch.
+# Comprehensive Engineering Specification: Building Frontier Large Language Models From Scratch
+**System Architecture, Pre-Training Recipes, Mid-Training, Verifiable Reasoning (RLVR/GRPO), Agentic Tool Integration, Distributed Fault Tolerance, and Production Serving**
 
 ---
 
-## 📄 Primary Specification Document
+## Technical Audit & Reconciliation Notice
 
-The exhaustive, mathematically reconciled engineering report is located at:
-👉 **[`RESEARCH_REPORT_FRONTIER_LLM_FROM_SCRATCH.md`](./RESEARCH_REPORT_FRONTIER_LLM_FROM_SCRATCH.md)**
+This engineering specification incorporates a comprehensive audit of foundational LLM architectures, resolving prior industry-wide numerical approximations, code-level execution defects, and production omissions.
+
+### Key Technical Reconciliations at a Glance
+
+```
+┌─────────────────────────────┬───────────────────────────────┬────────────────────────────────────────────────────────┐
+│ Engineering Component       │ Prior Approximation           │ Calibrated Mathematical & Engineering Ground Truth     │
+├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Parameter Count Formulation │ 138B Total / 22B Active       │ Exact Architecture Breakdown:                          │
+│                             │ (uncalibrated expert sizing)  │ - Configuration A (Audited Reference): 190.8B / 30.2B   │
+│                             │                               │ - Configuration B (Calibrated Baseline): 138.4B / 21.9B │
+├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
+│ MLA KV-Cache Compression    │ ~93%                          │ Exactly 96.484% tensor storage reduction               │
+│                             │                               │ (16,384 floats/token/layer down to 576 floats)         │
+├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
+│ 128k BF16 KV-Cache (B=16)   │ Hundreds of GB                │ MHA: 4.295 TB vs. MLA: 151.0 GB                        │
+├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Pre-Training Cost Modeling  │ $6.8M / 1,024 GPUs / 54 days  │ Disaggregated Financial Reconciliation:               │
+│                             │ ($5.12/hr effective rate)     │ - Pure Compute ($2.50-$3.20/hr): $3.32M - $4.25M       │
+│                             │                               │ - Fully Burdened Project Budget: $6.80M                │
+│                             │                               │   (Storage, Failures, R&D, Mid/Post-Training, Eval)    │
+├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
+│ MoE Dynamic Load Balancing  │ Static buffer registration    │ Implemented momentum-driven bias tracking (b_i)        │
+│                             │ (bias never updated)          │ and decoupled score routing from weight assignment     │
+├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Multi-Token Causal Mask     │ Mask starting at index 0      │ Implemented past_len position-aware dynamic causal     │
+│                             │ (breaks cached decoding)      │ masking with decoupled RoPE index offsets              │
+├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
+│ GRPO Reasoning Pipeline     │ Static loss function only     │ Complete end-to-end rollout generator, group advantage │
+│                             │                               │ normalization, reward-hacking guards, and optimizer    │
+├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
+│ Agentic Search Tooling      │ String concatenation          │ Schema-validated, prompt-injection sanitized, typed    │
+│                             │ (untrusted prompt injection)  │ tool-call boundary with citation verification checks   │
+└─────────────────────────────┴───────────────────────────────┴────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 📌 Repository Contents
+## Primary Engineering Specification Document
+
+The full technical specification is available at:
+[RESEARCH_REPORT_FRONTIER_LLM_FROM_SCRATCH.md](./RESEARCH_REPORT_FRONTIER_LLM_FROM_SCRATCH.md)
+
+---
+
+## Repository Contents
 
 ```
 .
-├── README.md                                    # Project overview and navigation
-├── .gitignore                                   # Standard development ignore rules
-└── RESEARCH_REPORT_FRONTIER_LLM_FROM_SCRATCH.md # Complete 800+ line engineering specification
+|-- .gitignore                                   # Standard development ignore rules
+|-- LICENSE                                      # MIT Open-Source License
+|-- README.md                                    # Project overview, architecture, and lifecycle guide
+`-- RESEARCH_REPORT_FRONTIER_LLM_FROM_SCRATCH.md # Complete audited engineering specification
 ```
 
 ---
 
-## 🔬 Core Architectural Foundations
+## Core Architectural Foundations
 
 ```mermaid
 flowchart TD
     subgraph CoreFoundations ["1. Architectural Foundations"]
-        A[Multi-Head Latent Attention MLA<br/>96.48% KV Compression] --- B[Fine-Grained Sparse MoE<br/>Shared + Routed Experts]
-        B --- C[Decoupled Rotary Embeddings<br/>128k YaRN Context Extension]
+        A["Multi-Head Latent Attention (MLA)<br>96.48% KV-Cache Compression"]
+        B["Fine-Grained Sparse MoE<br>Shared and Routed Experts"]
+        C["Decoupled Rotary Embeddings<br>128k YaRN Context Extension"]
+        A --- B
+        B --- C
     end
 
-    subgraph DataAndPretraining ["2. Data Engineering & Pre-Training"]
-        D[Multi-Trillion Token Corpus<br/>MinHash LSH & 13-Gram Decontamination] --> E[3D Distributed Training<br/>TP + PP + EP + ZeRO-3]
-        E --> F[FP8 Mixed Precision<br/>QK-Norm Stabilization]
+    subgraph DataAndPretraining ["2. Data Engineering and Pre-Training"]
+        D["Multi-Trillion Token Corpus<br>MinHash LSH and 13-Gram Decontamination"]
+        E["3D Distributed Training<br>TP + PP + EP + ZeRO-3"]
+        F["FP8 Mixed Precision<br>QK-Norm Stabilization"]
+        D --> E
+        E --> F
     end
 
-    subgraph ReasoningAndSearch ["3. Post-Training & Agentic Search"]
-        G[Verifiable Reward RL<br/>RLVR on Code & Math] --> H[Group Relative Policy Optimization<br/>GRPO Critic-Free Policy]
-        H --> I[Native Web Search Loop<br/>Retriever-Generator-Scorer]
+    subgraph ReasoningAndSearch ["3. Post-Training and Agentic Search"]
+        G["Verifiable Reward RL<br>RLVR on Code and Math"]
+        H["Group Relative Policy Optimization<br>GRPO Critic-Free Policy"]
+        I["Native Web Search Loop<br>Retriever-Generator-Scorer"]
+        G --> H
+        H --> I
     end
 
-    subgraph ServingInfrastructure ["4. Hardware & Inference Serving"]
-        J[Enterprise GPU Superclusters<br/>High-Bandwidth RDMA Fabric] --> K[Production Serving Engine<br/>PagedAttention + Speculative MTP]
+    subgraph ServingInfrastructure ["4. Hardware and Inference Serving"]
+        J["Enterprise GPU Superclusters<br>High-Bandwidth RDMA Fabric"]
+        K["Production Serving Engine<br>PagedAttention + Speculative MTP"]
+        J --> K
     end
 
-    CoreFoundations --> DataAndPretraining
-    DataAndPretraining --> ReasoningAndSearch
-    ReasoningAndSearch --> ServingInfrastructure
+    C --> D
+    F --> G
+    I --> J
 ```
 
 1. **Multi-Head Latent Attention (MLA)**:
    - Low-rank joint Key-Value compression into latent vector ($d_c = 512$) with decoupled Rotary Position Embedding ($d_r = 64$).
-   - Reduces KV-cache memory consumption by **$96.484\%$** (shrinking from $16,384$ floats/token down to $576$ floats/token).
-   - At batch size 16, context length 128,000, and 64 layers under BF16, standard MHA requires **$4.295\text{ TB}$**, whereas MLA requires only **$150.995\text{ GB}$**.
+   - Reduces KV-cache memory consumption by **96.484%** (shrinking from 16,384 floats/token down to 576 floats/token).
+   - At batch size 16, context length 128,000, and 64 layers under BF16, standard MHA requires **4.295 TB**, whereas MLA requires only **150.995 GB**.
 
 2. **Fine-Grained Sparse Mixture-of-Experts (MoE)**:
    - Segments Feed-Forward Networks into 64 fine-grained routed experts and 2 dedicated shared experts.
    - Dynamic momentum-driven load-balancing router bias updates ($b_i$) to prevent expert starvation without adding conflicting loss terms.
 
 3. **Group Relative Policy Optimization (GRPO)**:
-   - Completely eliminates the separate value/critic network, saving $\approx 50\%$ GPU memory during RL training.
+   - Completely eliminates the separate value/critic network, saving ~50% GPU memory during RL training.
    - Samples groups of $G=8$ rollouts per prompt and normalizes advantages strictly within the group, with automated zero-variance safeguards.
 
-4. **Native Agentic Search & Tool Security**:
+4. **Native Agentic Search and Tool Security**:
    - Internalized search triggering via `<|search_query|>` tokens.
-   - Prompt-injection sanitization on untrusted web inputs and lexical citation verification ($\ge 40\%$ overlap requirement).
+   - Prompt-injection sanitization on untrusted web inputs and lexical citation verification (>= 40% overlap requirement).
 
 ---
 
-## 📊 Parameter Configuration Derivations
+## Parameter Configuration Derivations
 
 | Dimension | Configuration A (Audited Reference) | Configuration B (Calibrated Baseline) |
 | :--- | :--- | :--- |
@@ -91,21 +137,21 @@ flowchart TD
 
 ---
 
-## 🛠️ The Nine-Stage Engineering Lifecycle
+## The Nine-Stage Engineering Lifecycle
 
-1. **Stage 01: Empirical Scaling Laws**: Pilot runs ($100\text{M}\text{--}3\text{B}$), FLOPs corrected beyond $6ND$ for long-context attention ($+18\%$) and all-to-all communication ($+12\%\text{--}15\%$).
-2. **Stage 02: Data Governance & Decontamination**: MinHash LSH (Jaccard $>0.8$), SemDeDup (cosine $>0.92$), and 13-gram exact match benchmark decontamination.
+1. **Stage 01: Empirical Scaling Laws**: Pilot runs (100M-3B), FLOPs corrected beyond $6ND$ for long-context attention (+18%) and all-to-all communication (+12%-15%).
+2. **Stage 02: Data Governance and Decontamination**: MinHash LSH (Jaccard > 0.8), SemDeDup (cosine > 0.92), and 13-gram exact match benchmark decontamination.
 3. **Stage 03: Pre-Training Recipe**: Warmup-Stable-Decay (WSD) schedule, global batch size scaling ($3,072 \to 15,360$), AdamW, and FP8 (E4M3/E5M2) execution with FP32 master weights.
-4. **Stage 04: Distributed Fault Tolerance**: Megatron-Core MoE with Context Parallelism (CP), Expert Parallelism (EP), grouped GEMMs, asynchronous NVMe checkpointing ($<30\text{s}$), and automated straggler eviction.
-5. **Stage 05: Targeted Mid-Training**: $500\text{B}$ tokens of curated STEM, code syntax trees, and synthetic CoT, followed by YaRN context extension ($8\text{k} \to 32\text{k} \to 128\text{k}$).
+4. **Stage 04: Distributed Fault Tolerance**: Megatron-Core MoE with Context Parallelism (CP), Expert Parallelism (EP), grouped GEMMs, asynchronous NVMe checkpointing (< 30s), and automated straggler eviction.
+5. **Stage 05: Targeted Mid-Training**: 500B tokens of curated STEM, code syntax trees, and synthetic CoT, followed by YaRN context extension ($8\text{k} \to 32\text{k} \to 128\text{k}$).
 6. **Stage 06: Full Reasoning RL (RLVR + GRPO)**: Online rollout engine, Docker execution sandboxes, and SymPy verifiers inducing emergent `<start_thinking>` traces.
 7. **Stage 07: Native Agentic Tool-Use RL**: Rewarding environment state transitions, prompt injection sanitization, and citation fidelity verification.
 8. **Stage 08: Contamination-Free Evaluation**: Private, unreleased test suites across 9 distinct axes (reasoning, coding, agentic workflows, calibration, safety).
-9. **Stage 09: Production Serving & SLOs**: Prefill/Decode disaggregation, continuous batching with PagedAttention, speculative Multi-Token Prediction (MTP) decoding ($P_{95}\text{ TTFT} \le 300\text{ms}$, $P_{95}\text{ TPOT} \le 20\text{ms}$).
+9. **Stage 09: Production Serving and SLOs**: Prefill/Decode disaggregation, continuous batching with PagedAttention, speculative Multi-Token Prediction (MTP) decoding ($P_{95}\text{ TTFT} \le 300\text{ms}$, $P_{95}\text{ TPOT} \le 20\text{ms}$).
 
 ---
 
-## 💻 PyTorch Implementations Included
+## PyTorch Implementations Included
 
 The reference specification contains production-grade PyTorch code:
 * **`MultiHeadLatentAttention`**: Position-aware `past_len` causal masking for prompt prefill and multi-token cached decode, decoupled RoPE offsets, and QK-Norm stabilization.
@@ -115,6 +161,6 @@ The reference specification contains production-grade PyTorch code:
 
 ---
 
-## ⚖️ License
+## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.

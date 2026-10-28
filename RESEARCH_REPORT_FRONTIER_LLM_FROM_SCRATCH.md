@@ -160,14 +160,24 @@ To guarantee reproducibility and avoid capital loss during megascale runs, front
 
 ```mermaid
 flowchart TD
-    S01["Stage 01: Scaling Laws & Pilot Prototyping (100M - 3B Models)"] --> S02["Stage 02: Data Governance, Curation & Decontamination"]
-    S02 --> S03["Stage 03: Architecture Validation & Kernel Optimization"]
-    S03 --> S04["Stage 04: Foundation Pre-Training (15T Tokens, 3D Parallelism)"]
-    S04 --> S05["Stage 05: Targeted Mid-Training & Context Extension (128k)"]
-    S05 --> S06["Stage 06: High-Density SFT & Reasoning RLVR (GRPO)"]
-    S06 --> S07["Stage 07: Autonomous Agentic Tool & Search Training"]
-    S07 --> S08["Stage 08: Independent Contamination-Free Evaluation"]
-    S08 --> S09["Stage 09: Production Serving, Disaggregated Inference & SLOs"]
+    S01["Stage 01: Scaling Laws and Pilot Prototyping (100M - 3B Models)"]
+    S02["Stage 02: Data Governance, Curation and Decontamination"]
+    S03["Stage 03: Architecture Validation and Kernel Optimization"]
+    S04["Stage 04: Foundation Pre-Training (15T Tokens, 3D Parallelism)"]
+    S05["Stage 05: Targeted Mid-Training and Context Extension (128k)"]
+    S06["Stage 06: High-Density SFT and Reasoning RLVR (GRPO)"]
+    S07["Stage 07: Autonomous Agentic Tool and Search Training"]
+    S08["Stage 08: Independent Contamination-Free Evaluation"]
+    S09["Stage 09: Production Serving, Disaggregated Inference and SLOs"]
+
+    S01 --> S02
+    S02 --> S03
+    S03 --> S04
+    S04 --> S05
+    S05 --> S06
+    S06 --> S07
+    S07 --> S08
+    S08 --> S09
 ```
 
 ---
@@ -259,19 +269,19 @@ Learning Rate Schedule: Warmup-Stable-Decay (WSD)
 Scaling to thousands of accelerators requires multi-dimensional hybrid parallelism with zero single-point-of-failure infrastructure:
 
 ```mermaid
-flowchart LR
-    subgraph AcceleratorMesh ["Megatron-Core Multi-Dimensional Parallelism Grid"]
-        direction TB
-        TP["Tensor Parallelism (TP = 4)<br/>Intra-node GPU sharding via High-Speed Fabric"]
-        CP["Context Parallelism (CP = 4)<br/>Shards 128k context sequences via Ring-Attention"]
-        EP["Expert Parallelism (EP = 8)<br/>Shards 64 MoE experts across nodes"]
-        PP["Pipeline Parallelism (PP = 8)<br/>Interleaved 1F1B schedule across racks"]
-        DP["ZeRO-3 / FSDP Data Parallelism<br/>Shards optimizer states across remaining ranks"]
+flowchart TD
+    subgraph AcceleratorMesh ["Multi-Dimensional Parallelism Grid"]
+        TP["Tensor Parallelism (TP = 4)<br>Intra-node GPU sharding via High-Speed Fabric"]
+        CP["Context Parallelism (CP = 4)<br>Shards 128k context sequences via Ring-Attention"]
+        EP["Expert Parallelism (EP = 8)<br>Shards 64 MoE experts across nodes"]
+        PP["Pipeline Parallelism (PP = 8)<br>Interleaved 1F1B schedule across racks"]
+        DP["ZeRO-3 / FSDP Data Parallelism<br>Shards optimizer states across remaining ranks"]
+
+        TP --> CP
+        CP --> EP
+        EP --> PP
+        PP --> DP
     end
-    TP <--> CP
-    CP <--> EP
-    EP <--> PP
-    PP <--> DP
 ```
 
 #### Fault Tolerance & Recovery Mechanisms:
