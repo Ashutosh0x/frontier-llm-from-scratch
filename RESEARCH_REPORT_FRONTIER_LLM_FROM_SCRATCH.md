@@ -9,37 +9,16 @@ This engineering specification incorporates a comprehensive audit of foundationa
 
 ### Key Technical Reconciliations at a Glance
 
-```
-┌─────────────────────────────┬───────────────────────────────┬────────────────────────────────────────────────────────┐
-│ Engineering Component       │ Prior Approximation           │ Calibrated Mathematical & Engineering Ground Truth     │
-├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
-│ Parameter Count Formulation │ 138B Total / 22B Active       │ Exact Architecture Breakdown:                          │
-│                             │ (uncalibrated expert sizing)  │ • Configuration A (Audited Reference): 190.8B / 30.2B   │
-│                             │                               │ • Configuration B (Calibrated Baseline): 138.4B / 21.9B │
-├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
-│ MLA KV-Cache Compression    │ ~93%                          │ Exactly 96.484% tensor storage reduction               │
-│                             │                               │ (16,384 floats/token/layer down to 576 floats)         │
-├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
-│ 128k BF16 KV-Cache (B=16)   │ "Hundreds of GB"              │ MHA: 4.295 TB vs. MLA: 151.0 GB                        │
-├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
-│ Pre-Training Cost Modeling  │ $6.8M / 1,024 GPUs / 54 days  │ Disaggregated Financial Reconciliation:               │
-│                             │ ($5.12/hr effective rate)     │ • Pure Compute ($2.50–$3.20/hr): $3.32M – $4.25M       │
-│                             │                               │ • Fully Burdened Project Budget: $6.80M                │
-│                             │                               │   (Storage, Failures, R&D, Mid/Post-Training, Eval)    │
-├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
-│ MoE Dynamic Load Balancing  │ Static buffer registration    │ Implemented momentum-driven bias tracking ($b_i$)      │
-│                             │ (bias never updated)          │ and decoupled score routing from weight assignment     │
-├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
-│ Multi-Token Causal Mask     │ Mask starting at index 0      │ Implemented past_len position-aware dynamic causal     │
-│                             │ (breaks cached decoding)      │ masking with decoupled RoPE index offsets              │
-├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
-│ GRPO Reasoning Pipeline     │ Static loss function only     │ Complete end-to-end rollout generator, group advantage │
-│                             │                               │ normalization, reward-hacking guards, and optimizer    │
-├─────────────────────────────┼───────────────────────────────┼────────────────────────────────────────────────────────┤
-│ Agentic Search Tooling      │ String concatenation          │ Schema-validated, prompt-injection sanitized, typed    │
-│                             │ (untrusted prompt injection)  │ tool-call boundary with citation verification checks   │
-└─────────────────────────────┴───────────────────────────────┴────────────────────────────────────────────────────────┘
-```
+| Engineering Component | Prior Approximation | Calibrated Mathematical & Engineering Ground Truth |
+| :--- | :--- | :--- |
+| **Parameter Count Formulation** | 138B Total / 22B Active<br>*(uncalibrated expert sizing)* | **Exact Architecture Breakdown:**<br>• Configuration A (Audited Reference): 190.8B Total / 30.2B Active<br>• Configuration B (Calibrated Baseline): 138.4B Total / 21.9B Active |
+| **MLA KV-Cache Compression** | ~93% | **Exactly 96.484% tensor storage reduction**<br>(16,384 floats/token/layer down to 576 floats) |
+| **128k BF16 KV-Cache (B=16)** | Hundreds of GB | **MHA: 4.295 TB** vs. **MLA: 151.0 GB** |
+| **Pre-Training Cost Modeling** | $6.8M / 1,024 GPUs / 54 days<br>*($5.12/hr effective rate)* | **Disaggregated Financial Reconciliation:**<br>• Pure Compute ($2.50–$3.20/hr): $3.32M – $4.25M<br>• Fully Burdened Project Budget: $6.80M *(Storage, Failures, R&D, Mid/Post-Training, Eval)* |
+| **MoE Dynamic Load Balancing** | Static buffer registration<br>*(bias never updated)* | Implemented momentum-driven dynamic bias tracking ($b_i$) and decoupled score routing from weight assignment |
+| **Multi-Token Causal Mask** | Mask starting at index 0<br>*(breaks cached decoding)* | Implemented `past_len` position-aware dynamic causal masking with decoupled RoPE index offsets |
+| **GRPO Reasoning Pipeline** | Static loss function only | Complete end-to-end rollout generator, group advantage normalization, reward-hacking safeguards, and optimizer |
+| **Agentic Search Tooling** | String concatenation<br>*(untrusted prompt injection)* | Schema-validated, prompt-injection sanitized, typed tool-call boundary with citation verification checks |
 
 ---
 
@@ -77,25 +56,21 @@ In an autoregressive Transformer utilizing Multi-Head Latent Attention (MLA) and
 
 #### Comparison of Architectural Configurations
 
-```
-┌───────────────────────────────────────┬──────────────────────────────────┬──────────────────────────────────┐
-│ Dimension                             │ Configuration A (Audited Model)  │ Configuration B (Calibrated 138B)│
-├───────────────────────────────────────┼──────────────────────────────────┼──────────────────────────────────┤
-│ Layers ($L$)                          │ 64                               │ 64                               │
-│ Hidden Dimension ($d_{\text{model}}$) │ 5,120                            │ 5,120                            │
-│ Expert FFN Dimension ($d_{\text{ffn}}$│ 2,816                            │ 2,048                            │
-│ Total Experts Per Layer ($N_e$)       │ 64 routed + 2 shared = 66        │ 64 routed + 2 shared = 66        │
-│ Active Experts Per Token ($K$)        │ 6 routed + 2 shared = 8          │ 6 routed + 2 shared = 8          │
-│ Parameters Per Single Expert          │ 43,253,760 (~43.25M)             │ 31,457,280 (~31.46M)             │
-│ MoE FFN Parameters Per Layer          │ 2,854,748,160 (~2.855B)          │ 2,076,180,480 (~2.076B)          │
-│ Total MoE FFN Parameters (64 layers)  │ 182,703,882,240 (~182.70B)       │ 132,875,550,720 (~132.88B)       │
-│ Attention + Embedding Parameters      │ 8,091,860,992 (~8.09B)           │ 8,091,860,992 (~8.09B)           │
-├───────────────────────────────────────┼──────────────────────────────────┼──────────────────────────────────┤
-│ TOTAL SYSTEM PARAMETERS               │ 190,795,743,232 (190.8 Billion)  │ 140,967,411,712 (140.9 Billion)* │
-│ ACTIVE PARAMETERS PER TOKEN           │ 30,233,485,312 (30.2 Billion)    │ 22,701,309,952 (22.7 Billion)    │
-└───────────────────────────────────────┴──────────────────────────────────┴──────────────────────────────────┘
-*Note: To hit exactly 138.4B total / 21.9B active, set 3 initial layers as standard dense FFNs and 61 layers as MoE.
-```
+| Dimension | Configuration A (Audited Model) | Configuration B (Calibrated 138B) |
+| :--- | :--- | :--- |
+| **Layers ($L$)** | 64 | 64 |
+| **Hidden Dimension ($d_{\text{model}}$)** | 5,120 | 5,120 |
+| **Expert FFN Dimension ($d_{\text{ffn}}$)** | 2,816 | 2,048 |
+| **Total Experts Per Layer ($N_e$)** | 64 routed + 2 shared = 66 | 64 routed + 2 shared = 66 |
+| **Active Experts Per Token ($K$)** | 6 routed + 2 shared = 8 | 6 routed + 2 shared = 8 |
+| **Parameters Per Single Expert** | 43,253,760 (~43.25M) | 31,457,280 (~31.46M) |
+| **MoE FFN Parameters Per Layer** | 2,854,748,160 (~2.855B) | 2,076,180,480 (~2.076B) |
+| **Total MoE FFN Parameters (64 layers)** | 182,703,882,240 (~182.70B) | 132,875,550,720 (~132.88B) |
+| **Attention + Embedding Parameters** | 8,091,860,992 (~8.09B) | 8,091,860,992 (~8.09B) |
+| **TOTAL SYSTEM PARAMETERS** | **190,795,743,232 (190.8 Billion)** | **140,967,411,712 (140.9 Billion)\*** |
+| **ACTIVE PARAMETERS PER TOKEN** | **30,233,485,312 (30.2 Billion)** | **22,701,309,952 (22.7 Billion)** |
+
+*\*Note: To hit exactly 138.4B total / 21.9B active, set 3 initial layers as standard dense FFNs and 61 layers as MoE.*
 
 ---
 
@@ -132,25 +107,16 @@ $$\text{Raw Compute Cost} = 1,327,104 \times \$2.50 = \mathbf{\$3,317,760} \quad
 
 To reconcile this with the **\$6.80 Million Total Pre-Training Project Budget**, the full economic ledger must be accounted for:
 
-```
-┌───────────────────────────────────────────────────┬──────────────┬────────────┐
-│ Budget Component                                  │ Cost (USD)   │ Percentage │
-├───────────────────────────────────────────────────┼──────────────┼────────────┤
-│ 1. Core Pre-Training Compute (1.327M device-hours)│ $3,650,000   │ 53.7%      │
-│ 2. Unallocated Capacity, Stragglers & Failures    │ $720,000     │ 10.6%      │
-│    (15% MFU loss from node drops & NCCL timeouts) │              │            │
-│ 3. Storage, Petabyte Fast Scratch & Data Egress   │ $580,000     │ 8.5%       │
-│    (High-performance GPFS / Lustre NVMe tiers)    │              │            │
-│ 4. Pre-Training Exploratory Ablations & Scaling   │ $650,000     │ 9.6%       │
-│    (1B, 3B, 8B pilot architectures & loss checks) │              │            │
-│ 5. Mid-Training & Context Extension Runs          │ $480,000     │ 7.1%       │
-│    (128k YaRN adaptation & specialized STEM data) │              │            │
-│ 6. Post-Training RLVR Compute (GRPO Rollouts)     │ $420,000     │ 6.2%       │
-│ 7. Benchmark Infrastructure & Red-Teaming Audits  │ $300,000     │ 4.4%       │
-├───────────────────────────────────────────────────┼──────────────┼────────────┤
-│ TOTAL FULLY-BURDENED PROJECT BUDGET               │ $6,800,000   │ 100.0%     │
-└───────────────────────────────────────────────────┴──────────────┴────────────┘
-```
+| Budget Component | Cost (USD) | Percentage |
+| :--- | :--- | :--- |
+| **1. Core Pre-Training Compute** (1.327M device-hours) | $3,650,000 | 53.7% |
+| **2. Unallocated Capacity, Stragglers & Failures**<br>*(15% MFU loss from node drops & NCCL timeouts)* | $720,000 | 10.6% |
+| **3. Storage, Petabyte Fast Scratch & Data Egress**<br>*(High-performance GPFS / Lustre NVMe tiers)* | $580,000 | 8.5% |
+| **4. Pre-Training Exploratory Ablations & Scaling**<br>*(1B, 3B, 8B pilot architectures & loss checks)* | $650,000 | 9.6% |
+| **5. Mid-Training & Context Extension Runs**<br>*(128k YaRN adaptation & specialized STEM data)* | $480,000 | 7.1% |
+| **6. Post-Training RLVR Compute** *(GRPO Rollouts)* | $420,000 | 6.2% |
+| **7. Benchmark Infrastructure & Red-Teaming Audits** | $300,000 | 4.4% |
+| **TOTAL FULLY-BURDENED PROJECT BUDGET** | **$6,800,000** | **100.0%** |
 
 ---
 
@@ -192,26 +158,19 @@ $$C_{\text{corrected}} = 6 N_{\text{active}} D + 2 D \cdot S \cdot \frac{L \cdot
 
 A high-performance pre-training corpus requires an auditable data pipeline:
 
-```
-Raw Multi-Source Web Dumps (50 TB)
-               │
-               ▼
-   [PII & Secrets Scrubbing] ──────> Regex & Named Entity Redaction
-               │
-               ▼
-  [FastText Heuristic Filtering] ──> Quality Threshold & Perplexity Filtering
-               │
-               ▼
-      [MinHash LSH (128 hash)] ────> Document-Level Deduplication (Jaccard > 0.8)
-               │
-               ▼
-   [SemDeDup Dense Embeddings] ────> Semantic Cluster Pruning (Cosine > 0.92)
-               │
-               ▼
-  [Benchmark Decontamination] ─────> 13-gram exact match filter vs. MMLU, GSM8K, SWE-bench
-               │
-               ▼
-Curated Foundation Corpus (15 Trillion Tokens)
+```mermaid
+graph TD
+    raw["Raw Multi-Source Web Dumps (50 TB)"] --> pii["PII and Secrets Scrubbing"]
+    pii -.-> pii_detail["Regex and Named Entity Redaction"]
+    pii --> fasttext["FastText Heuristic Filtering"]
+    fasttext -.-> fasttext_detail["Quality Threshold and Perplexity Filtering"]
+    fasttext --> minhash["MinHash LSH (128 hash)"]
+    minhash -.-> minhash_detail["Document-Level Deduplication (Jaccard > 0.8)"]
+    minhash --> semdedup["SemDeDup Dense Embeddings"]
+    semdedup -.-> semdedup_detail["Semantic Cluster Pruning (Cosine > 0.92)"]
+    semdedup --> decontam["Benchmark Decontamination"]
+    decontam -.-> decontam_detail["13-gram exact match filter vs. MMLU, GSM8K, SWE-bench"]
+    decontam --> corpus["Curated Foundation Corpus (15 Trillion Tokens)"]
 ```
 
 #### Decontamination Protocol:
@@ -226,14 +185,14 @@ To prevent benchmark saturation and evaluation leakage:
 ```
 Learning Rate Schedule: Warmup-Stable-Decay (WSD)
      LR
-      ▲          Constant Peak LR (2.2e-4)
-      │          ┌──────────────────────────────────────┐
-      │         /                                        \
-      │        /                                          \  Cosine Decay
-      │       /                                            \
-      │      /                                              \________ Annealing Phase
-      │     /                                                         (7.3e-6)
-      └────┴───────────────────────────────────────────────┴─────────► Tokens
+      ^          Constant Peak LR (2.2e-4)
+      |          +--------------------------------------+
+      |         /                                        \
+      |        /                                          \  Cosine Decay
+      |       /                                            \
+      |      /                                              \________ Annealing Phase
+      |     /                                                         (7.3e-6)
+      +----+------------------------------------------------+---------> Tokens
         Warmup                                            Decay       (15T Total)
        (2,000 steps)                                    (Last 10%)
 ```
@@ -293,37 +252,23 @@ Following the general 15T-token pre-training phase, the base model enters **Targ
 
 ### Stage 06: Full Reasoning RL Infrastructure (RLVR + GRPO)
 
-```
-                       Input Reasoning Prompt (q)
-                                   │
-                                   ▼
-                    [Policy Model Rollout Engine]
-             Generates Group of G=8 Candidate Completions
-                                   │
-       ┌───────────────────────────┼───────────────────────────┐
-       ▼                           ▼                           ▼
-Candidate o_1               Candidate o_2               Candidate o_8
-       │                           │                           │
-       ▼                           ▼                           ▼
-[Docker Sandbox: Unit Tests] [Docker Sandbox: Linters] [SymPy / Lean 4 Solver]
-       │                           │                           │
-       ▼                           ▼                           ▼
-   Reward r_1                  Reward r_2                  Reward r_8
-       └───────────────────────────┼───────────────────────────┘
-                                   │
-                                   ▼
-               [Reward Distribution Sanity Check]
-            - If std(r) == 0: Skip gradient update
-            - Clamp rewards to prevent reward hacking
-                                   │
-                                   ▼
-              [Group Advantage Normalization: A_i]
-               A_i = (r_i - mean(r)) / (std(r) + eps)
-                                   │
-                                   ▼
-         [GRPO Loss Computation with Reference KL Divergence]
-           - Eliminates separate value network
-           - Updates policy weights via AdamW
+```mermaid
+graph TD
+    prompt["Input Reasoning Prompt (q)"] --> rollout["Policy Model Rollout Engine<br/>Generates Group of G=8 Candidate Completions"]
+    rollout --> c1["Candidate o_1"]
+    rollout --> c2["Candidate o_2"]
+    rollout --> c8["Candidate o_8"]
+    c1 --> s1["Docker Sandbox: Unit Tests"]
+    c2 --> s2["Docker Sandbox: Linters"]
+    c8 --> s8["SymPy / Lean 4 Solver"]
+    s1 --> r1["Reward r_1"]
+    s2 --> r2["Reward r_2"]
+    s8 --> r8["Reward r_8"]
+    r1 --> check["Reward Distribution Sanity Check<br/>If std(r) == 0: Skip gradient update; clamp rewards"]
+    r2 --> check
+    r8 --> check
+    check --> norm["Group Advantage Normalization<br/>A_i = (r_i - mean(r)) / (std(r) + eps)"]
+    norm --> loss["GRPO Loss Computation with Reference KL Divergence<br/>Critic-free policy update via AdamW"]
 ```
 
 #### Rule-Based Verifiers vs. Process Reward Models:
@@ -350,21 +295,17 @@ To prevent tool-hallucination and security breaches, tool usage is trained as an
 
 Frontier validation requires private, continuously refreshed evaluation suites across nine distinct dimensions:
 
-```
-┌───────────────────────────┬──────────────────────────────────┬────────────────────────────────────────────────────────┐
-│ Evaluation Dimension      │ Benchmark Target                 │ Verification Methodology                               │
-├───────────────────────────┼──────────────────────────────────┼────────────────────────────────────────────────────────┤
-│ 1. Core General Knowledge │ Private MMLU-style Held-Out      │ 5-shot perplexity & exact match (zero web contamination)│
-│ 2. Mathematical Reasoning │ AIME 2024/2025, Olympiad Suite   │ Pass@1 and Pass@k with symbolic verification via SymPy  │
-│ 3. Software Engineering   │ Private Repository Bug Fixes     │ Real git commits, docker unit tests, pass@1            │
-│ 4. Multi-Turn Agentic Flow│ GAIA-style Complex Trajectories  │ End-to-end task success rate across web/file systems   │
-│ 5. Search Grounding       │ Factuality & Citation Recall     │ Precision of inline citations vs. verified gold sources│
-│ 6. Long-Context Needle    │ Multi-Key Needle-In-A-Haystack   │ Retrieval accuracy across 0%–100% position in 128k ctx │
-│ 7. Safety & Red-Teaming   │ Jailbreak & Injection Testbench  │ Automated adversarial prompts, attack success rate <1% │
-│ 8. Distributed Stability  │ Hardware MFU & Recovery Time     │ Measured MFU (>42%), node-drop recovery under 60s      │
-│ 9. Serving Economics      │ TTFT & TPOT Production Latency   │ P95 TTFT < 300ms, P95 TPOT < 20ms at 100 concurrent req│
-└───────────────────────────┴──────────────────────────────────┴────────────────────────────────────────────────────────┘
-```
+| Evaluation Dimension | Benchmark Target | Verification Methodology |
+| :--- | :--- | :--- |
+| **1. Core General Knowledge** | Private MMLU-style Held-Out | 5-shot perplexity & exact match (zero web contamination) |
+| **2. Mathematical Reasoning** | AIME 2024/2025, Olympiad Suite | Pass@1 and Pass@k with symbolic verification via SymPy |
+| **3. Software Engineering** | Private Repository Bug Fixes | Real git commits, docker unit tests, pass@1 |
+| **4. Multi-Turn Agentic Flow** | GAIA-style Complex Trajectories | End-to-end task success rate across web/file systems |
+| **5. Search Grounding** | Factuality & Citation Recall | Precision of inline citations vs. verified gold sources |
+| **6. Long-Context Needle** | Multi-Key Needle-In-A-Haystack | Retrieval accuracy across 0%–100% position in 128k ctx |
+| **7. Safety & Red-Teaming** | Jailbreak & Injection Testbench | Automated adversarial prompts, attack success rate <1% |
+| **8. Distributed Stability** | Hardware MFU & Recovery Time | Measured MFU (>42%), node-drop recovery under 60s |
+| **9. Serving Economics** | TTFT & TPOT Production Latency | P95 TTFT < 300ms, P95 TPOT < 20ms at 100 concurrent req |
 
 ---
 
@@ -372,17 +313,13 @@ Frontier validation requires private, continuously refreshed evaluation suites a
 
 To maintain high serving throughput with 128k context windows, inference serving must disaggregate the prefill and decode stages:
 
-```
-Incoming Request
-       │
-       ▼
-[Admission Controller & Request Router]
-       │
-       ├── Prefill Phase (Compute-Bound): Routed to Chunked-Prefill Accelerators
-       └── Decode Phase (Memory-Bound): Routed to High-Bandwidth MLA-Paging Accelerators
-       │
-       ▼
-Continuous Batching Engine (PagedAttention + Speculative Multi-Token Decoding)
+```mermaid
+graph TD
+    req["Incoming Request"] --> router["Admission Controller and Request Router"]
+    router --> prefill["Prefill Phase (Compute-Bound): Routed to Chunked-Prefill Accelerators"]
+    router --> decode["Decode Phase (Memory-Bound): Routed to High-Bandwidth MLA-Paging Accelerators"]
+    prefill --> engine["Continuous Batching Engine (PagedAttention + Speculative Multi-Token Decoding)"]
+    decode --> engine
 ```
 
 1. **Prefill/Decode Disaggregation**:
