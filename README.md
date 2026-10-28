@@ -1,6 +1,14 @@
 # Comprehensive Engineering Specification: Building Frontier Large Language Models From Scratch
 **System Architecture, Pre-Training Recipes, Mid-Training, Verifiable Reasoning (RLVR/GRPO), Agentic Tool Integration, Distributed Fault Tolerance, and Production Serving**
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](./LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.1%2B-ee4c2c.svg?style=flat-square&logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![CUDA](https://img.shields.io/badge/CUDA-12.0%2B-76b900.svg?style=flat-square&logo=nvidia&logoColor=white)](https://developer.nvidia.com/cuda-toolkit)
+[![Distributed](https://img.shields.io/badge/Distributed-Megatron--Core-007acc.svg?style=flat-square&logo=linux&logoColor=white)](https://github.com/NVIDIA/Megatron-LM)
+[![Serving](https://img.shields.io/badge/Serving-vLLM-purple.svg?style=flat-square&logo=fastapi&logoColor=white)](https://github.com/vllm-project/vllm)
+[![Containers](https://img.shields.io/badge/Container-Docker-2496ed.svg?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
+
 ---
 
 ## Technical Audit & Reconciliation Notice
@@ -50,55 +58,45 @@ The full technical specification is available at:
 
 ---
 
-## Repository Contents
+## Repository Structure
 
 ```
 .
 |-- .gitignore                                   # Standard development ignore rules
 |-- LICENSE                                      # MIT Open-Source License
-|-- README.md                                    # Project overview, architecture, and lifecycle guide
+|-- README.md                                    # Project overview, tech stack, architecture, and lifecycle
 `-- RESEARCH_REPORT_FRONTIER_LLM_FROM_SCRATCH.md # Complete audited engineering specification
 ```
+
+---
+
+## Tech Stack & Framework Architecture
+
+| Layer / Domain | Component | Technology & Framework | Specification & Role |
+| :--- | :--- | :--- | :--- |
+| **Deep Learning Core** | Tensor Computation | ![PyTorch](https://img.shields.io/badge/PyTorch-2.1%2B-ee4c2c?style=flat-square&logo=pytorch&logoColor=white) | Automatic differentiation, custom autograd, and GPU execution |
+| **Programming Language** | Runtime | ![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat-square&logo=python&logoColor=white) | Core orchestration, data pipeline, and training harness |
+| **Hardware Acceleration** | GPU Architecture | ![CUDA](https://img.shields.io/badge/CUDA-12.0%2B-76b900?style=flat-square&logo=nvidia&logoColor=white) | Low-level GEMM execution, FlashAttention, and FP8 kernels |
+| **Distributed Scaling** | Hybrid Parallelism | ![Megatron-Core](https://img.shields.io/badge/Megatron--Core-3D_Parallel-007acc?style=flat-square&logo=linux&logoColor=white) | Tensor, Pipeline, Expert, and Context Parallelism with grouped GEMMs |
+| **Post-Training RL** | Reasoning Policy | ![RLVR-GRPO](https://img.shields.io/badge/RL-GRPO-blueviolet?style=flat-square) | Group Relative Policy Optimization without value/critic network |
+| **Inference Serving** | Production Engine | ![vLLM](https://img.shields.io/badge/vLLM-PagedAttention-purple?style=flat-square&logo=fastapi&logoColor=white) | Continuous batching, MLA latent KV-caching, and speculative MTP decoding |
+| **Sandbox Isolation** | Verifiable Rewards | ![Docker](https://img.shields.io/badge/Docker-Sandboxes-2496ed?style=flat-square&logo=docker&logoColor=white) | Isolated execution containers for deterministic unit tests and linters |
+| **Interconnect Fabric** | High-Radix Network | ![RDMA](https://img.shields.io/badge/RDMA-800G_InfiniBand-blue?style=flat-square) | High-throughput all-to-all communication for sparse MoE token dispatch |
 
 ---
 
 ## Core Architectural Foundations
 
 ```mermaid
-flowchart TD
-    subgraph CoreFoundations ["1. Architectural Foundations"]
-        A["Multi-Head Latent Attention (MLA)<br>96.48% KV-Cache Compression"]
-        B["Fine-Grained Sparse MoE<br>Shared and Routed Experts"]
-        C["Decoupled Rotary Embeddings<br>128k YaRN Context Extension"]
-        A --- B
-        B --- C
-    end
-
-    subgraph DataAndPretraining ["2. Data Engineering and Pre-Training"]
-        D["Multi-Trillion Token Corpus<br>MinHash LSH and 13-Gram Decontamination"]
-        E["3D Distributed Training<br>TP + PP + EP + ZeRO-3"]
-        F["FP8 Mixed Precision<br>QK-Norm Stabilization"]
-        D --> E
-        E --> F
-    end
-
-    subgraph ReasoningAndSearch ["3. Post-Training and Agentic Search"]
-        G["Verifiable Reward RL<br>RLVR on Code and Math"]
-        H["Group Relative Policy Optimization<br>GRPO Critic-Free Policy"]
-        I["Native Web Search Loop<br>Retriever-Generator-Scorer"]
-        G --> H
-        H --> I
-    end
-
-    subgraph ServingInfrastructure ["4. Hardware and Inference Serving"]
-        J["Enterprise GPU Superclusters<br>High-Bandwidth RDMA Fabric"]
-        K["Production Serving Engine<br>PagedAttention + Speculative MTP"]
-        J --> K
-    end
-
-    C --> D
-    F --> G
-    I --> J
+graph TD
+    A["1. Multi-Head Latent Attention (MLA)<br>96.48% KV-Cache Compression"] --> B["2. Fine-Grained Sparse MoE<br>64 Routed and 2 Shared Experts"]
+    B --> C["3. Decoupled Rotary Embeddings<br>128k YaRN Context Extension"]
+    C --> D["4. Foundation Pre-Training Corpus<br>15T Tokens with 13-Gram Decontamination"]
+    D --> E["5. Distributed 3D Parallelism<br>TP + PP + EP + ZeRO-3 in FP8 Precision"]
+    E --> F["6. Targeted Mid-Training<br>500B Tokens Code and Math, 128k Extension"]
+    F --> G["7. Verifiable Reasoning RL<br>RLVR and GRPO without Critic Network"]
+    G --> H["8. Native Agentic Search Loop<br>Retriever, Generator, and Scorer"]
+    H --> I["9. Production Serving Engine<br>PagedAttention and Speculative MTP Decoding"]
 ```
 
 1. **Multi-Head Latent Attention (MLA)**:
@@ -138,6 +136,18 @@ flowchart TD
 ---
 
 ## The Nine-Stage Engineering Lifecycle
+
+```mermaid
+graph TD
+    S01["Stage 01: Empirical Scaling Laws and Pilot Prototyping"] --> S02["Stage 02: Data Governance and 13-Gram Decontamination"]
+    S02 --> S03["Stage 03: Architecture Validation and Kernel Optimization"]
+    S03 --> S04["Stage 04: Foundation Pre-Training (15T Tokens in FP8)"]
+    S04 --> S05["Stage 05: Targeted Mid-Training and Context Extension (128k)"]
+    S05 --> S06["Stage 06: Reasoning Post-Training (RLVR and GRPO)"]
+    S06 --> S07["Stage 07: Native Agentic Tool and Search Training"]
+    S07 --> S08["Stage 08: Contamination-Free Private Evaluation"]
+    S08 --> S09["Stage 09: Production Serving and Disaggregated SLOs"]
+```
 
 1. **Stage 01: Empirical Scaling Laws**: Pilot runs (100M-3B), FLOPs corrected beyond $6ND$ for long-context attention (+18%) and all-to-all communication (+12%-15%).
 2. **Stage 02: Data Governance and Decontamination**: MinHash LSH (Jaccard > 0.8), SemDeDup (cosine > 0.92), and 13-gram exact match benchmark decontamination.
